@@ -1,0 +1,188 @@
+#--------------------------------------------------------------------#
+                   #Monitoria Econometria I - Sesión II#
+#--------------------------------------------------------------------#
+
+#Instalar paquetes
+install.packages("tidyverse")
+install.packages("readxl")
+install.packages("fun")
+
+library(tidyverse)
+library(fun)
+library(readxl)
+
+#----------Importar bases de datos (csv, tex, slsx, dta, spss, sas)-----#
+
+#### LLamando toda la ruta 
+
+#Con botones
+#Con funcion de la base 
+DF = read.csv("C:/Users/Shelly G/Documents/Monitoria econoemtria/Semana 2/beer.csv")  #Archivos .csv
+DF = read.table() #Archivos .tex
+
+#Con readxl (from tidyverse)
+DF = read_excel()
+
+
+
+#------------------------- Fijando el directorio ------------------------#
+
+#El directorio por default es aquel en el que está guardado el script
+DF = read.csv("beer.csv")
+
+
+#Conocer el directorio actual
+getwd()
+
+
+#Fijar un directorio
+setwd("C:/Users/Shelly G/Documents")
+setwd(getwd())
+
+
+#---------------- Limpieza y manejo básico de datos --------------------------#
+
+#Revisar el tipo de objeto que tiene cada variable
+class(DF$sales)
+sapply(DF, class)
+
+#Convertir al formato que corresponde
+DF$price = as.numeric(DF$price) #NAs produced by coercion, habían datos que no es posible convertir a número
+DF$q = as.numeric(DF$q)
+DF$sales = as.numeric(DF$sales)
+DF$volsales = as.numeric(DF$volsales)
+DF$Nal = as.factor(DF$Nal)
+
+#Para variables discretas revisen los valores unicos
+unique(DF$Nal)
+
+#Reemplazar valores sujeto a una condición
+DF$Nal = ifelse(DF$Nal==".", NA, DF$Nal)  #Base
+DF = DF %>% mutate(Nal = ifelse(Nal==".", NA, Nal)) #Tidyverse (dplyr)
+
+
+#Hay valores perdidos?
+sum(is.na(DF$q))
+Nas = is.na(DF) #Crea una matriz con el T o F para todas las filas
+apply(Nas, 2, sum) #apply para matrices o filas, sapply para columnas DF, lapply para listas
+
+
+#Eliminar observaciones con NA
+DF1 = DF[!is.na(DF['price']), ]  #Haciendo un subset (Base)
+DF = DF %>% drop_na(price)   #Tidyverse (dplyr) 
+DF = DF %>% drop_na()        #Tidyverse (dplyr) Para NA en cualquier columna
+
+
+#Eliminar duplicados
+DF1 = DF[!duplicated(DF), ]  #Base
+DF = DF %>% distinct()       #Tidyverse (dplyr)
+
+
+
+#------------------------- Estadística descriptiva -----------------------#
+
+
+#Qué tipo de variables son? Qué estadísticas descriptivas tendrían sentido?
+
+#Máximo, mínimo y rango
+max(DF$price)
+min(DF$price)
+range(DF$price)
+
+
+###### Medidas de tendencia central
+
+#Media aritmética
+Sum_Y = sum(DF$sales)
+n = length(DF$sales)
+prom = Sum_Y/n
+
+mean(DF$sales)
+sapply(DF[, -2], mean)
+
+
+#Mediana
+#Pares
+Semi_Median = n/2 
+Price_Sorted = sort(DF$price)
+Price_Sorted[Semi_Median]
+Median_Price = (Price_Sorted[Semi_Median] + Price_Sorted[Semi_Median+1])/2
+Median_Price
+
+#Moda
+#La moda tiene sentido para datos discretos. Hagamos un ejemplo, creemos
+#una variable discreta que sea 1 si la cerveza es cara, 2 tiene un precio 
+#cercano al promedio y 3 si es costoso 
+#R no tiene una funcion base para la moda
+
+DF$Caro = ifelse(DF$price < 0.7*mean(DF$price), 1, 2)
+DF$Caro = ifelse(DF$price > 1.2*mean(DF$price)/2, 3, DF$Caro)
+
+install.packages("DescTools")
+library(DescTools)
+Mode(DF$Caro)
+
+
+####Medidas de dispersión
+
+#Varianza
+V1 = DF$price - mean(DF$price)
+v2 = V1^2
+v3 = sum(v2)
+Var_Price = v3/(n-1)
+Var_Price
+
+
+var(DF$price)
+
+
+#Desviación estándar
+sqrt(Var_Price)
+sd(DF$price)
+
+
+#Coeficiente de variación
+CV = sd(DF$price)/mean(DF$price)
+
+
+#Percentiles y quantiles
+quantile(DF$price, prob=c(0.25, 0.75))
+quantile(DF$price, prob=seq(0, 1, length = 101))
+
+
+#Tabla de frequencias
+table(DF$Nal)
+
+
+
+### Estadísticas descriptivas para la relación entre dos variables
+#Covarianza
+Cov1 = DF$price - mean(DF$price)
+Cov2 = DF$q - mean(DF$q)
+Cov_num = t(Cov1)%*%Cov2
+Cov_price_q = Cov_num/(n-1)
+
+cov(DF$price, DF$q)
+
+
+#Coeficiente de correlación
+
+cor_price_q = cov(DF$price, DF$q)/(sd(DF$price)*sd(DF$q))
+
+cor(DF['price'], DF['q'])
+
+
+
+#----------------------------------Gráficas----------------------------------#
+hist(DF$price)
+hist(DF$price, breaks=3, main="Precio de las cervezas", 
+     ylab="Densidad", xlab="Precio", col="lightblue", prob=T)
+abline(v = mean(DF$price), col="blue", lwd=3, lty=2)
+lines(density(DF$price), lty="dotted", col="darkgreen", lwd=2) 
+
+plot(DF$price, DF$q, main = "Diagrama de dispersión",
+     xlab = "Precio", ylab = "Cantidades")
+  
+  
+
+
