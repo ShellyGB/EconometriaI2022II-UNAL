@@ -1,88 +1,90 @@
-## -------------------------------------------------------- ##
-#                 Sesion 6 - Econometría I                   #
-## -------------------------------------------------------- ##
-## Script por: Shelly Gónzalez, Camilo Lozada, Santiago Rivera 
+library(haven)
+library(tidyverse)
+library(patchwork)
+library(vcov)
+MincerianEconometriaI <- read_dta("Practica Banrep/Informality and missalocation DS/MincerianEconometriaI.dta")
+colnames(MincerianEconometriaI)
+colnames(MincerianEconometriaI)[9] = "Ingreso"
 
-## Estimación por el método de máxima verosimilitud. 
+#Remove na
+MincerianEconometriaI = MincerianEconometriaI %>% drop_na()
 
-# Concepto:
-#           Verosimilitud - Probabilidad
-#       Maxima Verosimilitud - Máxima Probabilidad. 
+#----------------------Regresion minceriana-------------------------------#
+#Mincer identificó que los retornos a la experiencia tienen forma cuadratica,
+#una regresión minceriana se considera aquella que explica el ingreso en
+#en terminos de la educación y el ingreso, aquí añadiremos el genero
 
-## Se trata de estimar los parámetros de la distribución correspondiente, 
-## que maximizan la probabilidad de encontrar los valores de la distribución poblacional.
+#Creas variable de experiencia: Edad - 15
+MincerianEconometriaI = MincerianEconometriaI %>% mutate(Exper = if_else(edad<=15, 0, edad-15))
+MincerianEconometriaI$Exper2 = MincerianEconometriaI$Exper*MincerianEconometriaI$Exper
 
-## Veamoslo, 
-set.seed(1123) # Plantamos una semilla, 
-x = rnorm(100) # Creamos una variable x que sigue una distribución normal 
-## Escalamos para que la desviacion estandar(x)=8 y la media sea 10. 
-x = x/sd(x)*8 # Fijando la Desviación extándar
-x = x-mean(x)+10 # Fijando la media
-## Ahora la variable x sigue una distribución normal con media 10 y varianza 100. 
-## Veamos la distribución de la variable con un histograma.
-hist(x)
-# Recordemos que la función de densidad de probabilidad para la distribución normal es: 
-fdp_norm = function(x,m,s){y = (1/sqrt(2*pi*s^2))*exp((x-m)^2/(-1/(2*s^2)))}
-## Veamos lo gráficamente, 
-# Distribición normal estándar, 
-curve(expr = fdp_norm(x = x, m=0, s=1), from = -4, to = 4)
-# Distribición normal con media = 1 y ds = 1 
-curve(expr = fdp_norm(x = x, m=1, s=1), from = -4, to = 4, add = T, col="red")
-# Distribución normal con media = 0 y ds = 2
-curve(expr = fdp_norm(x = x, m=0, s=2), from = -4, to = 4, add = T, col="green")
+#--------------Graficos de dispersion con GGPLOT2-----------------------------#
+#En una regresión minceriana, y en general en las regresiones con ingreso,
+#el ingreso suele ponerse en logaritmos debido a su dispersión y la diferencia
+#de sus valores en niveles respecto a las otras variables, además de permitir
+#un análisis en terminos de semielasticidades
 
-# ¿Cuál distribución entre Y y Z puede explicar de una mejor manera mi variable de interés?
-# El método de máxima verosimilitud lo que hace es hallar los mejores parámetros de la distribución,
-# que se ajustan a la función de densidad de probabilidad de mi variable. 
+#Edu
+ggplot(MincerianEconometriaI, aes(x=edu, y=log(Ingreso))) + geom_point()
 
-## Formalmente: Se tiene una función de densidad conjunta dónde se tratan de encontrar un conjunto de datos,
-##              dados unos parámetros. 
-## Sin embargo, se trata de responder lo contrario: 
-##      ¿Qué tan probable es hallar una muestra dados unos parámetros?
-## Lo anterior dado a que en lo práctico se tienen como observado la muestra de datos y no los parámetros.
-## LA IDEA ENTONCES ES - HALLAR EL VECTOR DE PARÁMETROS QUE MÁXIMIZA ESA FUNCIÓN. 
++ theme_bw()  #Estilo
++ labs(title="Ingreso vs Educación", x="Educación", y="Ingreso (ln)") #Nombres de titulo y ejes
++ geom_point(shape=23, fill="blue", color="darkred", size=3) #Tipo de punto, al diseño sobre le tipo de grafica suelen encontrarlo en estas funciones
 
-##----- Máxima verosimilitud en el modelo de regresión lineal simple. 
-# Siguiendo lo anterior, en una regresión   Y~X lo que se trata es hallar los parámetros que máximizan 
-# la probabilidad de encontrar la Y dada la serie X.
-# ¿Qué parámetros? Depende de la distribución. 
-## En el caso de la regresión lineal simple, el supone que el término de error se distribuye normalmente. 
-
-## Estimemos una regresion lineal por maxima verosimilitud. 
-## Datos
-x= cbind(1, runif(100)) #Generamos las variables X para correr la regresion, 
-param_poblacional = c(2,3,1) # Definimos los parametros poblacionales: b0=2, b1=3 y varianza=1
-y = x %*%param_poblacional[1:2] + rnorm(100)
-
-## Funcion de verosimilitud,
-## Funcion de verosimilitud
-lm_MLE = function(theta, y, x) {
-  n = nrow(x) 
-  k = ncol(x) 
-  beta = theta[1:k] 
-  sigma2 = theta[k+1] 
-  e = y-x%*%beta 
-  logl = -((n/2)*log(2*pi))-((n/2)*log(sigma2))-(t(e)%*%e/(2*sigma2))
-  return(-logl)
-  }
-
- 
+G_Edu = ggplot(MincerianEconometriaI, aes(x=edu, y=log(Ingreso))) + geom_point() + 
+  theme_bw() + labs(title="Ingreso vs Educación", x="Educación", y="Ingreso (ln)")
 
 
-max = optim(c(1,1,1), lm_MLE, method = "BFGS", hessian = T, y=y, x=x)
-max
+#Exper
+G_Exper = ggplot(MincerianEconometriaI[MincerianEconometriaI$Exper != 0, ], aes(x=Exper, y=log(Ingreso))) + geom_point() + 
+  theme_bw() + labs(title="Ingreso vs Experiencia", x="Experiencia", y="Ingreso (ln)")
 
-## Matriz de informacion y varianzas asintoticas,
-max$hessian
-OI = solve(max$hessian)
-SE = sqrt(diag(OI)) ## Desviaciones estandar
 
-## Veamos si da lo mismo por mco,
-datos = data.frame(x=x[,2], y)
-lm_mco = lm(y~x, data=datos)
-summary(lm_mco)
-## Comparamos
-tablita = cbind("Coeficientes MLE"= c(max$par[1:2]), "Desviaciones MLE" = SE[1:2],
-                "Coeficientes MCO"= lm_mco$coefficients, "Desviaciones MCO" = sqrt(diag(vcov(lm_mco)))) 
+#Genero
+G_gen = ggplot(MincerianEconometriaI, aes(x=genero, y=log(Ingreso))) + geom_point() + 
+  theme_bw() + labs(title="Ingreso vs sexo al nacer", x="Sexo al nacer", y="Ingreso (ln)")
 
-## ¿Por qué dan iguales?
+
+MultipleG = G_Edu + G_Exper + G_gen
+
+#-----------------------------Modelo--------------------------------#
+MinReg = lm(log(Ingreso) ~ edu + genero + Exper + Exper2, data=MincerianEconometriaI)
+summary(MinReg)
+#Interprete, recuerde que el ingreso está en logaritmos
+
+#--------------Prueba de hipótesis: significancia------------------------------#
+#Recuerde que en MCO para realizar inferencia se debe cumplir normalidad en 
+#los errores, de manera que nuestros coeficientes distribuyan normales.
+
+
+#-------Prueba de significancia------#
+
+#Estadístico t H0: B=0
+#sigma2est = sum(t(MinReg$residuals)%*%MinReg$residuals)/(nrow(MincerianEconometriaI)-5)
+vcov(MinReg)
+tstat_edu = MinReg$coefficients[2]/sqrt(vcov(MinReg)[2,2])
+qnorm(0.975) #Normal distribution
+qt(0.975, (nrow(MincerianEconometriaI)-5)) #t-student distribution
+
+#--------Intervalo de confianza------#
+#Si quiero un intervalo de 95% de confianza entonces el %5 de significancia
+#se reparte entre dos porciones de 2.5% a cada cola de la dsitribución
+
+tcritico = qt(0.975, (nrow(MincerianEconometriaI)-5))
+#Con 0.025 será el mismo porque la t-student es simetrica
+
+
+LowerB = MinReg$coefficients[2] - tcritico*sqrt(vcov(MinReg)[2,2])
+UpperB = MinReg$coefficients[2] + tcritico*sqrt(vcov(MinReg)[2,2])
+confint(MinReg)
+
+
+#--------------------Pruebas de hipotesis en general------------------------#
+          
+          #Los hombres ganan 20% mas que las mujeres?#
+
+#H0: B1 = 0.2 vs H1: B1 != 0.1
+
+tstats = (MinReg$coefficients[3] - 0.2)/sqrt(vcov(MinReg)[3,3])
+qt(0.95, (nrow(MincerianEconometriaI)-5))
+
