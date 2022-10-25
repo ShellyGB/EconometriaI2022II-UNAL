@@ -1,0 +1,66 @@
+remove(list = ls()) #Limpiar entorno
+
+setwd("D:/Users/Camilo 323/Desktop/Universidad/Econometria/Monitoria_2022/")
+
+Ocupados <-read.csv("Ocupados.CSV",sep =";" )
+Caracteristicas <- read.csv("Caracteristicas.csv", sep = ';')
+
+library(tidyverse)
+
+colnames(Ocupados)
+
+
+Ocupados <- Ocupados %>%
+  select('DIRECTORIO', 'ORDEN', 'SECUENCIA_P', "INGLABO")
+
+Caracteristicas <- Caracteristicas %>%
+  select('DIRECTORIO', 'ORDEN', 'SECUENCIA_P', "P3271", "P3042")
+
+#Conformar llaves para unir las bases de datos.
+
+Ocupados = Ocupados %>% 
+  add_column(ID = paste(as.character(Ocupados$DIRECTORIO), 
+                        as.character(Ocupados$ORDEN),
+                        as.character(Ocupados$SECUENCIA_P), 
+                        sep = ''),
+             .before = 1)
+
+Caracteristicas = Caracteristicas %>% 
+  add_column(ID = paste(as.character(Caracteristicas$DIRECTORIO), 
+                        as.character(Caracteristicas$ORDEN),
+                        as.character(Caracteristicas$SECUENCIA_P), 
+                        sep = ''),
+             .before = 1)
+
+#Unimos mediante las llaves
+Datos = inner_join(x = Caracteristicas, 
+                   y = Ocupados, 
+                   by = 'ID')
+
+Datos <- Datos %>%
+  select(-c('DIRECTORIO.x', 'ORDEN.x', 'SECUENCIA_P.x',
+            'DIRECTORIO.y', 'ORDEN.y', 'SECUENCIA_P.y'))
+
+colnames(Datos) <- c("ID", "Sexo", "Educ", "Ingreso")
+
+#Bases de datos de hombres
+Datosh <- Datos %>%
+  mutate(Sexo = case_when(Sexo == 2 ~ 0/0, Sexo == 1 ~ 1)) %>%
+  drop_na() %>%
+  select(-(Sexo))
+
+#Bases de datos de mujeres
+Datosm <- Datos %>%
+  mutate(Sexo = case_when(Sexo == 1 ~ 0/0, Sexo == 2 ~ 2)) %>%
+  drop_na() %>%
+  select(-(Sexo))
+
+library(stargazer)
+
+stargazer(Datosh, Datosm, type= 'text')
+
+hist(Datosh$Educ)
+hist(Datosm$Educ)
+
+#Los hombres para el mes de junio ganaban un salario más alto 
+#A pesar de tener una menor educación que los hombres 
