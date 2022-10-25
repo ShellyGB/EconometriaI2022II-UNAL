@@ -1,0 +1,84 @@
+#Econometria I - 2022-II
+
+remove(list = ls()) #Limpiar entorno
+
+# El data set empleado es el state.x77
+
+library(dplyr)
+datos <- as.data.frame(state.x77)
+datos <- rename(habitantes = Population, analfabetismo = Illiteracy,
+                ingresos = Income, esp_vida = `Life Exp`, asesinatos = Murder,
+                universitarios = `HS Grad`, heladas = Frost, area = Area,
+                .data = datos)
+
+#creamos una nueva variable
+datos <- datos %>%
+  mutate(densidad_pobl = habitantes * 1000 / area)
+
+#Matriz de coeficientes de correlación
+
+library(psych)
+
+corPlot(datos)
+
+x11()
+
+library(GGally)
+ggpairs(datos, lower = list(continuous = "smooth"),
+        diag = list(continuous = "barDiag"), axisLabels = "none")
+
+modelo <- lm(esp_vida ~ habitantes + ingresos + analfabetismo + asesinatos +
+               universitarios + heladas + area + densidad_pobl, data = datos )
+summary(modelo)
+
+#Mediante iteraciones, veamos cuál es la especificación del modelo que 
+#mejor hace fit según criterio AIC
+
+step(object = modelo, direction = "both", trace = 1)
+
+#La mejor especificación
+
+modelo <- (lm(formula = esp_vida ~ habitantes + asesinatos + universitarios +
+                heladas, data = datos))
+summary(modelo)
+
+#Validemos los supuestos de nuestro modelo
+
+#Analisis gráfico para linealidad de los parametros
+#Los errores se comportan de manera aleatoria al rededor de 0?
+
+library(ggplot2)
+library(gridExtra)
+plot1 <- ggplot(data = datos, aes(habitantes, modelo$residuals)) +
+  geom_point() + geom_smooth(color = "firebrick") + geom_hline(yintercept = 0) +
+  theme_bw()
+plot2 <- ggplot(data = datos, aes(asesinatos, modelo$residuals)) +
+  geom_point() + geom_smooth(color = "firebrick") + geom_hline(yintercept = 0) +
+  theme_bw()
+plot3 <- ggplot(data = datos, aes(universitarios, modelo$residuals)) +
+  geom_point() + geom_smooth(color = "firebrick") + geom_hline(yintercept = 0) +
+  theme_bw()
+plot4 <- ggplot(data = datos, aes(heladas, modelo$residuals)) +
+  geom_point() + geom_smooth(color = "firebrick") + geom_hline(yintercept = 0) +
+  theme_bw()
+grid.arrange(plot1, plot2, plot3, plot4)
+
+#Normalidad de los errores mediante prueba Shapiro W
+#
+#H0. Errores homecedasticos
+shapiro.test(modelo$residuals) #Son homocedasticos
+
+#Multicolinealidad
+
+#Otro paquete para hacer corplots
+library(corrplot)
+
+corrplot(cor(dplyr::select(datos, habitantes, asesinatos,universitarios,heladas)),
+         method = "number", tl.col = "black")
+
+#Pruebas de hipótesis para significancia individual y global
+
+library(car)
+linearHypothesis(modelo, c("(Intercept)=0", "habitantes=0"))
+
+                 
